@@ -1,0 +1,19 @@
+{
+  "name": "voidline-client",
+  "version": "0.1.0",
+  "description": "Voidline CLI client - E2E encrypted chat, no email/phone accounts, local-only encrypted history",
+  "main": "client.js",
+  "bin": {
+    "voidline": "./client.js"
+  },
+  "scripts": {
+    "start": "node client.js"
+  },
+  "keywords": ["e2ee", "privacy", "chat"],
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "libsodium-wrappers-sumo": "^0.8.4",
+    "ws": "^8.21.0"
+  }
+}

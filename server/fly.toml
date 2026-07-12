@@ -1,0 +1,17 @@
+# Fly.io config. Deploy with: flyctl launch (first time) / flyctl deploy (updates)
+# App name must be globally unique — flyctl launch will prompt you to change it.
+app = "voidline-relay"
+primary_region = "fra"  # Frankfurt — pick something close to your users
+
+[build]
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = false   # keep it always-on (still within free allowance for 1 shared VM)
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

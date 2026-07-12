@@ -1,0 +1,14 @@
+{
+  "name": "voidline-server",
+  "version": "0.1.0",
+  "description": "Voidline relay server - dumb, stateless, zero-metadata WebSocket relay for E2E encrypted messages",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["e2ee", "privacy", "chat", "relay"],
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.21.0"
+  }
+}
