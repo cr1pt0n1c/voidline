@@ -1,188 +1,148 @@
 # Voidline
 
-A minimal, working prototype of a privacy-first chat app: end-to-end
-encrypted, no email/phone accounts, no server-side history, no metadata
-retention. This is a **functional MVP**, tested end-to-end — not a mockup.
+**A minimal end-to-end encrypted chat prototype built around one idea: the server should know as little as possible.**
 
-## What's actually implemented (and tested)
+No email. No phone number. No account recovery questions. Your identity *is* a cryptographic keypair you generate locally, and the relay server that shuttles messages between people never sees plaintext, never stores conversation history, and deletes everything as soon as it's delivered.
 
-- **Identity = keypair, not email/phone.** Each client generates an X25519
-  keypair on first run. The base64 public key *is* the account.
-- **End-to-end encryption** via `crypto_box` (X25519 + XSalsa20-Poly1305,
-  libsodium's NaCl box construction).
-- **Dumb relay server.** Only ever sees `recipient_pubkey -> encrypted_blob`.
-  Delivers immediately if the recipient is online; otherwise queues in RAM
-  (never disk) for up to 24h, then hard-deletes. Restarting the server wipes
-  everything. No logs of content or identity.
-- **Local-only history**, app-layer encrypted with `crypto_secretbox` under
-  a key derived from your passphrase via **Argon2id** (`crypto_pwhash`).
-  Verified: grepping the raw `.sqlite` file for message text finds nothing.
-- **Identity file encrypted at rest** the same way — without the passphrase
-  it's unusable ciphertext.
-- **Auto-reconnect with backoff.** If the relay drops (free-tier sleep,
-  redeploy, network blip), the client retries automatically and queues
-  outgoing messages locally until it's back — important once the relay is
-  running on a free host that isn't always-on.
+This is an early, working prototype — not a polished app. It's built to be extended, and contributions/ideas are welcome.
 
-## What this is *not* (yet)
+## What it is
 
-Being upfront about the gap between "prototype" and "production":
+Voidline is a terminal-based chat client + a relay server, built on:
 
-- **No Double Ratchet / forward secrecy.** Each message reuses the same
-  static X25519 keypair (like NaCl box, not Signal Protocol). If a private
-  key ever leaks, *all* past traffic for that identity is retroactively
-  readable. Production version should layer in `libsignal` for proper
-  ratcheting and forward secrecy.
-- **No contact verification / MITM protection.** `/add` trusts whatever
-  pubkey you type in. Real deployment needs out-of-band verification
-  (QR code exchange, safety-number comparison) — see the earlier
-  discussion on invite links.
-- **IP address is still visible to the relay** at the TCP layer. The
-  *application* stores no metadata, but the transport layer isn't hidden.
-  For real anonymity you'd front this with Tor (run the relay as a hidden
-  service) or a mixnet.
-- **No multi-device support.** One identity file = one device. Signal's
-  approach (linked devices via a separate key-exchange step) is the
-  reference design if you want this later.
-- **No SQLCipher.** History encryption is app-layer (per-row), not
-  full-database-file encryption. Good defense in depth already; swapping
-  `better-sqlite3` for a SQLCipher-backed driver would encrypt the whole
-  file too, including schema/table names.
-- **No push notifications, no group chat, no file transfer.** Text only,
-  1:1, while both sides run the client.
+- **End-to-end encryption** (`crypto_box`: X25519 key exchange + XSalsa20-Poly1305), via [libsodium](https://libsodium.gitbook.io/doc/)
+- **Keypair-based identity** — no signup, no personal info, ever
+- **Local-only message history**, encrypted at rest with a key derived from your passphrase (Argon2id)
+- **A relay server that stores nothing** — messages live in RAM only, and are deleted the moment they're delivered (or after 24h if the recipient never comes online)
 
-## Deploy the relay for free (so people don't need to run their own)
+## How it works
 
-**Fly.io** is the best free option here — free allowance covers 1 always-on
-shared VM, which is enough for this relay (it holds almost nothing in
-memory). Render's free tier also works but sleeps after 15min idle, adding
-a ~30-60s cold-start delay on the next connection — the client's
-auto-reconnect (see below) handles that gracefully, so either is fine for
-an early testing phase.
-
-### Option A — Fly.io (recommended, stays awake)
-
-```bash
-brew install flyctl   # or see fly.io/docs/hands-on/install-flyctl
-fly auth login
-cd server
-fly launch            # detects fly.toml, will ask you to confirm/rename the app
-fly deploy
+```
+┌──────────┐                  ┌──────────┐                  ┌──────────┐
+│  Alice   │                  │  Relay   │                  │   Bob    │
+│          │  encrypted blob  │          │  encrypted blob  │          │
+│ (client) │ ───────────────► │ (server) │ ───────────────► │ (client) │
+│          │                  │          │                  │          │
+│ SQLite,  │                  │  RAM     │                  │ SQLite,  │
+│ encrypted│                  │  only,   │                  │ encrypted│
+│ locally  │                  │  no logs │                  │ locally  │
+└──────────┘                  └──────────┘                  └──────────┘
 ```
 
-You'll get a URL like `wss://voidline-relay.fly.dev`. Give that to testers
-via the `VOIDLINE_SERVER` env var (see below).
+1. When you first run the client, it generates an X25519 keypair locally. Your **public key is your entire identity** — share it with someone (out-of-band, e.g. in person, over Signal, whatever) so they can message you.
+2. Messages are encrypted on your device before they ever leave it. The relay server only ever sees `recipient's public key → encrypted blob` — it has no way to read the content.
+3. Once delivered, the server forgets the message immediately. There's no conversation history sitting on any server, anywhere.
+4. Your own copy of the conversation lives only on your device, in a local SQLite database, itself encrypted with a key derived from a passphrase you choose (via Argon2id — the same algorithm used for secure password hashing).
 
-### Option B — Render.com (simpler UI, sleeps when idle)
+**What this means:** if the relay server were ever seized, subpoenaed, or hacked, there is nothing to hand over — no message content, no history, no way to link identities to real people.
 
-1. Push this repo to GitHub (see below) first.
-2. On [render.com](https://render.com) → New → Web Service → connect the repo,
-   root directory `server/`.
-3. Build command: `npm install`. Start command: `npm start`.
-4. Render auto-sets `PORT`; `server.js` already respects it.
-5. You'll get `https://your-app.onrender.com` — for WebSocket, testers connect
-   to `wss://your-app.onrender.com`.
+## Honest limitations (this is v0.1)
 
-### Pointing clients at your deployed relay
+- **No forward secrecy yet.** Messages are encrypted with a static keypair, not a ratcheting protocol like Signal's. If your private key ever leaks, past messages become readable retroactively. A Double Ratchet upgrade is the top item on the roadmap.
+- **No contact verification.** Adding a contact just trusts whatever public key you type in — no built-in QR-code/safety-number verification yet, so it's currently vulnerable to a man-in-the-middle if you exchange keys over an insecure channel.
+- **Your IP is visible to the relay** at the network level, even though the app itself stores no metadata. Full anonymity would need this run behind Tor.
+- **One device per identity.** No multi-device sync yet.
+- **Terminal-only.** No GUI or mobile app (yet).
 
-```bash
-VOIDLINE_SERVER=wss://voidline-relay.fly.dev node client.js alice
-```
+## Quickstart
 
-Or testers just export it once: `export VOIDLINE_SERVER=wss://...` in their shell profile.
-
-## Publishing the client so people can try it with one command
-
-Once you're ready for low-friction testing (no `git clone` needed):
+### 1. Clone the repo
 
 ```bash
-cd client
-npm login
-npm publish --access public
-```
-
-Then anyone can run:
-```bash
-npx voidline-client alice
-# or, since bin is set:
-npx voidline alice
-```
-
-Until then, the GitHub clone + `npm install` path (see "Running it" above)
-works fine for early testers who don't mind a couple of terminal commands.
-
-## Pushing this to GitHub
-
-```bash
+git clone https://github.com/cr1pt0n1c/voidline.git
 cd voidline
-git init
-git add .
-git commit -m "Initial Voidline prototype: E2E relay + local-encrypted client"
-git branch -M main
-git remote add origin https://github.com/<your-username>/voidline.git
-git push -u origin main
 ```
 
-`.gitignore` already excludes `node_modules/`, `.voidline-data/` (local
-identities — never commit these), and log files.
-
-For a public repo people will actually test, consider adding to the
-README's top: a one-paragraph "what is this / why" (you already have that
-context from this conversation), a short GIF or asciinema recording of two
-terminals chatting, and a `CONTRIBUTING.md` once you're ready for PRs —
-not needed for v0.1, but worth it once "postupně budu rozšiřovat
-funkcionalitu" kicks in and other people start opening issues.
-
-
+### 2. Install the client
 
 ```bash
-# terminal 1 — the relay
-cd server
+cd client
+npm install
+```
+
+### 3. Run it, pointed at the public relay
+
+```bash
+VOIDLINE_SERVER=wss://voidline-relay.onrender.com node client.js <your-name>
+```
+
+Replace `<your-name>` with any local profile name you want (e.g. `alice`) — it's just a label for your local identity files, nobody else sees it.
+
+> The relay is hosted on a free tier and may take 30-60 seconds to wake up if nobody's used it recently. The client retries automatically — just wait a moment on first connect.
+
+On first run you'll be asked for a **passphrase**. This encrypts your local identity and message history — pick something you'll remember, there is no recovery if you forget it.
+
+You'll then see your public key printed, something like:
+```
+Your public key (share this out-of-band, e.g. QR code, to add contacts):
+3qWtSP4rKSR6vXtndLx976-cgQ2xRPYKibVW1MZk0mc
+```
+
+**Share this with whoever you want to chat with**, and get theirs in return, through any channel you both trust.
+
+## Usage
+
+Once connected, you get a prompt (`voidline>`). Commands:
+
+| Command | What it does |
+|---|---|
+| `/add <label> <pubkey>` | Add a contact under a memorable name |
+| `/contacts` | List your saved contacts |
+| `/to <label>` | Set the active chat |
+| `/history` | Show the local, decrypted history with the active contact |
+| `/quit` | Exit |
+
+Anything else you type is sent as a message to whoever's currently active (`/to`).
+
+### Example session
+
+```bash
+$ node client.js alice
+Passphrase for this identity: ********
+
+--- VOIDLINE ---
+Your public key (share this out-of-band, e.g. QR code, to add contacts):
+3qWtSP4rKSR6vXtndLx976-cgQ2xRPYKibVW1MZk0mc
+----------------
+
+[connected] relay at wss://voidline-relay.onrender.com, registered as 3qWtSP4rKSR6vXtn...
+
+voidline> /add bob L2ULEnP4ZYC4LQ7a5VWQy_Be_2EPimF-7Lb7Ghya8TU
+Added bob.
+voidline> /to bob
+Active chat -> bob
+voidline> hey, this is encrypted end to end
+```
+
+## Running your own relay instead of the public one
+
+If you'd rather not rely on the shared relay (or want to self-host for a group of friends), the server is dead simple to run yourself:
+
+```bash
+git clone https://github.com/cr1pt0n1c/voidline.git
+cd voidline/server
+npm install
 node server.js
-
-# terminal 2 — Alice
-cd client
-node client.js alice
-
-# terminal 3 — Bob
-cd client
-node client.js bob
 ```
 
-In each client:
-```
-/add <label> <their-pubkey>     # exchange pubkeys out-of-band first!
-/to <label>
-<type anything to send>
-/history
+Then point any client at it:
+```bash
+VOIDLINE_SERVER=ws://localhost:8787 node client.js alice
 ```
 
-Each profile's data (identity, salts, local encrypted history) lives in
-`client/.voidline-data/<profile>/` — delete that folder to wipe a profile
-completely.
+It's also deployable for free — Render.com's free web service tier works with no credit card required (just connect this repo, set the root directory to `server`, build command `npm install`, start command `npm start`).
 
-## Suggested next steps, roughly in priority order
+## Roadmap
 
-1. Swap the crypto layer for `libsignal` (Double Ratchet) — this is the
-   single biggest gap vs. a real secure messenger.
-2. Add QR-code-based contact exchange with fingerprint verification.
-3. Put the relay behind a Tor hidden service (`.onion`), or at minimum
-   strip IP logging at whatever reverse proxy fronts it in production.
-4. Add an explicit, user-triggered encrypted export/import for history
-   (so reinstalling doesn't mean losing everything, without ever putting
-   plaintext-adjacent backups on a server).
-5. If you want multi-device: implement a linked-device flow, not
-   server-side history sync.
+- [ ] Double Ratchet (via `libsignal`) for forward secrecy
+- [ ] QR-code contact exchange with safety-number verification
+- [ ] Tor hidden-service support for the relay, to hide IP metadata too
+- [ ] Multi-device linking
+- [ ] Group chats
+- [ ] A proper GUI
 
-## Files
+Contributions and issue reports welcome — this is an early, actively evolving project.
 
-```
-voidline/
-├── server/
-│   └── server.js       # the whole relay — ~100 lines, read it, it's short
-├── client/
-│   ├── crypto.js        # identity, E2E encrypt/decrypt, local storage seal
-│   ├── db.js             # SQLite wrapper, app-layer encrypted rows
-│   └── client.js          # CLI: register, add contacts, send, history
-└── README.md (this file)
-```
+## License
+
+MIT — see [LICENSE](./LICENSE).
