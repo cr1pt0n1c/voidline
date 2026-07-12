@@ -2,7 +2,7 @@
 
 A minimal, working prototype of a privacy-first chat app: end-to-end
 encrypted, no email/phone accounts, no server-side history, no metadata
-retention. This is a **functional MVP**, tested end-to-end — not a mockup.
+retention. This is a **functional MVP**, tested end-to-end - not a mockup.
 
 ## What's actually implemented (and tested)
 
