@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Voidline</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== Unlock screen ===== -->
+  <section id="unlock-screen" class="screen">
+    <div class="unlock-card">
+      <div class="brand">
+        <span class="brand-mark">◈</span>
+        <span class="brand-name">Voidline</span>
+      </div>
+      <p class="brand-tag">No accounts. No history on any server. Just a key only you hold.</p>
+
+      <label class="field-label" for="passphrase">Passphrase</label>
+      <input id="passphrase" type="password" placeholder="Choose or enter your passphrase" autofocus />
+      <p class="field-hint">This encrypts your identity and messages on this device. There is no reset — write it down somewhere safe.</p>
+
+      <details class="advanced">
+        <summary>Advanced: relay server</summary>
+        <input id="server-url" type="text" placeholder="wss://voidline-relay.onrender.com" />
+        <p class="field-hint">Leave blank to use the default public relay.</p>
+      </details>
+
+      <button id="unlock-btn" class="primary-btn">Enter Voidline</button>
+      <p id="unlock-error" class="error-text"></p>
+    </div>
+  </section>
+
+  <!-- ===== Main app screen ===== -->
+  <section id="main-screen" class="screen hidden">
+    <aside class="sidebar">
+      <div class="identity-block">
+        <div class="status-row">
+          <span id="status-dot" class="status-dot offline"></span>
+          <span id="status-text" class="status-text">connecting…</span>
+        </div>
+        <div class="mykey-row">
+          <span class="mykey-label">Your key</span>
+          <code id="mykey-value" class="mykey-value"></code>
+          <button id="copy-mykey-btn" class="icon-btn" title="Copy your public key">⧉</button>
+        </div>
+      </div>
+
+      <div class="contacts-header">
+        <span>Contacts</span>
+        <button id="add-contact-btn" class="icon-btn" title="Add a contact">+</button>
+      </div>
+      <ul id="contact-list" class="contact-list"></ul>
+    </aside>
+
+    <main class="chat-pane">
+      <div id="empty-state" class="empty-state">
+        <p>Select a contact, or add one with their public key to start an encrypted conversation.</p>
+      </div>
+
+      <div id="chat-active" class="chat-active hidden">
+        <header class="chat-header">
+          <span id="active-contact-label"></span>
+        </header>
+        <div id="message-list" class="message-list"></div>
+        <form id="send-form" class="send-form">
+          <input id="message-input" type="text" placeholder="Type a message…" autocomplete="off" />
+          <button type="submit" class="primary-btn small">Send</button>
+        </form>
+      </div>
+    </main>
+  </section>
+
+  <!-- ===== Add contact modal ===== -->
+  <div id="add-contact-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h3>Add a contact</h3>
+      <p class="field-hint">Get their public key from them directly — in person, over a call, however you both trust.</p>
+      <label class="field-label" for="contact-label">Name for them</label>
+      <input id="contact-label" type="text" placeholder="e.g. Bob" />
+      <label class="field-label" for="contact-pubkey">Their public key</label>
+      <input id="contact-pubkey" type="text" placeholder="Paste their public key" />
+      <div class="modal-actions">
+        <button id="cancel-contact-btn" class="ghost-btn">Cancel</button>
+        <button id="save-contact-btn" class="primary-btn small">Add contact</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
