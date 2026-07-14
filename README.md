@@ -4,16 +4,16 @@
 
 No email. No phone number. No account recovery questions. Your identity *is* a cryptographic keypair you generate locally, and the relay server that shuttles messages between people never sees plaintext, never stores conversation history, and deletes everything as soon as it's delivered.
 
-This is an early, working prototype — not a polished app. It's built to be extended, and contributions/ideas are welcome.
+This is an early, working prototype - not a polished app. It's built to be extended, and contributions/ideas are welcome.
 
 ## What it is
 
 Voidline is a terminal-based chat client + a relay server, built on:
 
 - **End-to-end encryption** (`crypto_box`: X25519 key exchange + XSalsa20-Poly1305), via [libsodium](https://libsodium.gitbook.io/doc/)
-- **Keypair-based identity** — no signup, no personal info, ever
+- **Keypair-based identity** - no signup, no personal info, ever
 - **Local-only message history**, encrypted at rest with a key derived from your passphrase (Argon2id)
-- **A relay server that stores nothing** — messages live in RAM only, and are deleted the moment they're delivered (or after 24h if the recipient never comes online)
+- **A relay server that stores nothing** - messages live in RAM only, and are deleted the moment they're delivered (or after 24h if the recipient never comes online)
 
 ## How it works
 
@@ -29,17 +29,17 @@ Voidline is a terminal-based chat client + a relay server, built on:
 └──────────┘                  └──────────┘                  └──────────┘
 ```
 
-1. When you first run the client, it generates an X25519 keypair locally. Your **public key is your entire identity** — share it with someone (out-of-band, e.g. in person, over Signal, whatever) so they can message you.
-2. Messages are encrypted on your device before they ever leave it. The relay server only ever sees `recipient's public key → encrypted blob` — it has no way to read the content.
+1. When you first run the client, it generates an X25519 keypair locally. Your **public key is your entire identity** - share it with someone (out-of-band, e.g. in person, over Signal, whatever) so they can message you.
+2. Messages are encrypted on your device before they ever leave it. The relay server only ever sees `recipient's public key → encrypted blob` - it has no way to read the content.
 3. Once delivered, the server forgets the message immediately. There's no conversation history sitting on any server, anywhere.
-4. Your own copy of the conversation lives only on your device, in a local SQLite database, itself encrypted with a key derived from a passphrase you choose (via Argon2id — the same algorithm used for secure password hashing).
+4. Your own copy of the conversation lives only on your device, in a local SQLite database, itself encrypted with a key derived from a passphrase you choose (via Argon2id - the same algorithm used for secure password hashing).
 
-**What this means:** if the relay server were ever seized, subpoenaed, or hacked, there is nothing to hand over — no message content, no history, no way to link identities to real people.
+**What this means:** if the relay server were ever seized, subpoenaed, or hacked, there is nothing to hand over - no message content, no history, no way to link identities to real people.
 
 ## Honest limitations (this is v0.1)
 
 - **No forward secrecy yet.** Messages are encrypted with a static keypair, not a ratcheting protocol like Signal's. If your private key ever leaks, past messages become readable retroactively. A Double Ratchet upgrade is the top item on the roadmap.
-- **No contact verification.** Adding a contact just trusts whatever public key you type in — no built-in QR-code/safety-number verification yet, so it's currently vulnerable to a man-in-the-middle if you exchange keys over an insecure channel.
+- **No contact verification.** Adding a contact just trusts whatever public key you type in, no built-in QR-code/safety-number verification yet, so it's currently vulnerable to a man-in-the-middle if you exchange keys over an insecure channel.
 - **Your IP is visible to the relay** at the network level, even though the app itself stores no metadata. Full anonymity would need this run behind Tor.
 - **One device per identity.** No multi-device sync yet.
 - **Terminal-only.** No GUI or mobile app (yet).
@@ -68,7 +68,7 @@ VOIDLINE_SERVER=wss://voidline-relay.onrender.com node client.js <your-name>
 
 Replace `<your-name>` with any local profile name you want (e.g. `alice`) — it's just a label for your local identity files, nobody else sees it.
 
-> The relay is hosted on a free tier and may take 30-60 seconds to wake up if nobody's used it recently. The client retries automatically — just wait a moment on first connect.
+> The relay is hosted on a free tier and may take 30-60 seconds to wake up if nobody's used it recently. The client retries automatically - just wait a moment on first connect.
 
 On first run you'll be asked for a **passphrase**. This encrypts your local identity and message history — pick something you'll remember, there is no recovery if you forget it.
 
@@ -130,7 +130,7 @@ Then point any client at it:
 VOIDLINE_SERVER=ws://localhost:8787 node client.js alice
 ```
 
-It's also deployable for free — Render.com's free web service tier works with no credit card required (just connect this repo, set the root directory to `server`, build command `npm install`, start command `npm start`).
+It's also deployable for free, Render.com's free web service tier works with no credit card required (just connect this repo, set the root directory to `server`, build command `npm install`, start command `npm start`).
 
 ## Roadmap
 
@@ -141,7 +141,7 @@ It's also deployable for free — Render.com's free web service tier works with 
 - [ ] Group chats
 - [ ] A proper GUI
 
-Contributions and issue reports welcome — this is an early, actively evolving project.
+Contributions and issue reports welcome - this is an early, actively evolving project.
 
 ## License
 
